@@ -7,7 +7,6 @@ import Darwin
 struct Suggestion: Decodable {
     let word: String
     let score: Int
-    let tags: [String]?
 }
 
 struct DictionaryEntry: Decodable {
@@ -52,7 +51,6 @@ enum DictionaryAPI {
         var components = URLComponents(string: "https://api.datamuse.com/words")!
         components.queryItems = [
             URLQueryItem(name: "rel_syn", value: word),
-            URLQueryItem(name: "md", value: "f"),
             URLQueryItem(name: "max", value: "24")
         ]
         let data = try get(components.url!)
@@ -182,22 +180,18 @@ struct App {
         if !suggestions.isEmpty {
             out += "\u{001B}[90mBest matches first · green = higher relevance · red = lower relevance\u{001B}[0m\n"
             let rankWidth = 4
-            let scoreWidth = 7
-            let frequencyWidth = 10
             let tableWidth = max(44, min(100, terminalWidth() - 2))
-            let wordWidth = max(10, tableWidth - rankWidth - scoreWidth - frequencyWidth - 17)
-            let top = "┌" + String(repeating: "─", count: rankWidth + 2) + "┬" + String(repeating: "─", count: wordWidth + 2) + "┬" + String(repeating: "─", count: scoreWidth + 2) + "┬" + String(repeating: "─", count: frequencyWidth + 2) + "┐"
-            let separator = "├" + String(repeating: "─", count: rankWidth + 2) + "┼" + String(repeating: "─", count: wordWidth + 2) + "┼" + String(repeating: "─", count: scoreWidth + 2) + "┼" + String(repeating: "─", count: frequencyWidth + 2) + "┤"
-            let bottom = "└" + String(repeating: "─", count: rankWidth + 2) + "┴" + String(repeating: "─", count: wordWidth + 2) + "┴" + String(repeating: "─", count: scoreWidth + 2) + "┴" + String(repeating: "─", count: frequencyWidth + 2) + "┘"
+            let wordWidth = max(10, tableWidth - rankWidth - 7)
+            let top = "┌" + String(repeating: "─", count: rankWidth + 2) + "┬" + String(repeating: "─", count: wordWidth + 2) + "┐"
+            let separator = "├" + String(repeating: "─", count: rankWidth + 2) + "┼" + String(repeating: "─", count: wordWidth + 2) + "┤"
+            let bottom = "└" + String(repeating: "─", count: rankWidth + 2) + "┴" + String(repeating: "─", count: wordWidth + 2) + "┘"
             out += "\n\(top)\n"
-            out += tableRow("#", word: "Word", score: "Score", frequency: "Frequency", rankWidth: rankWidth, wordWidth: wordWidth, scoreWidth: scoreWidth, frequencyWidth: frequencyWidth) + "\n"
+            out += tableRow("#", word: "Suggestion", rankWidth: rankWidth, wordWidth: wordWidth) + "\n"
             out += "\(separator)\n"
             for (index, suggestion) in suggestions.enumerated() {
                 let number = index == selected ? ">\(index + 1)" : " \(index + 1)"
-                let frequencyTag = suggestion.tags?.first(where: { $0.hasPrefix("f:") })
-                let frequency = frequencyTag.flatMap { Double($0.dropFirst(2)) }.map { String(format: "%.2f", $0) } ?? "—"
                 let coloredWord = "\(colorCode(for: index, count: suggestions.count))\(suggestion.word)\u{001B}[0m"
-                out += tableRow(number, word: coloredWord, score: String(suggestion.score), frequency: frequency, rankWidth: rankWidth, wordWidth: wordWidth, scoreWidth: scoreWidth, frequencyWidth: frequencyWidth) + "\n"
+                out += tableRow(number, word: coloredWord, rankWidth: rankWidth, wordWidth: wordWidth) + "\n"
             }
             out += "\(bottom)\n"
             if let definition {
@@ -218,11 +212,11 @@ struct App {
         return "\u{001B}[31m"
     }
 
-    private func tableRow(_ rank: String, word: String, score: String, frequency: String, rankWidth: Int, wordWidth: Int, scoreWidth: Int, frequencyWidth: Int) -> String {
+    private func tableRow(_ rank: String, word: String, rankWidth: Int, wordWidth: Int) -> String {
         let plainWord = stripANSI(word)
         let clippedWord = String(plainWord.prefix(wordWidth))
         let coloredWord = word.hasPrefix("\u{001B}") ? word.replacingOccurrences(of: plainWord, with: clippedWord) : clippedWord
-        return "│ \(pad(rank, width: rankWidth, right: true)) │ \(coloredWord)\(String(repeating: " ", count: max(0, wordWidth - clippedWord.count))) │ \(pad(score, width: scoreWidth, right: true)) │ \(pad(frequency, width: frequencyWidth, right: true)) │"
+        return "│ \(pad(rank, width: rankWidth, right: true)) │ \(coloredWord)\(String(repeating: " ", count: max(0, wordWidth - clippedWord.count))) │"
     }
 
     private func stripANSI(_ text: String) -> String {
