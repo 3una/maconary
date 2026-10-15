@@ -10,7 +10,7 @@ Requires macOS 13 or later and Apple's Swift command-line tools. Install from Te
 curl -fsSL https://raw.githubusercontent.com/3una/dictionary/main/install.sh | sh
 ```
 
-The binary installs to `~/.local/bin/dictionary`. Add `export PATH="$HOME/.local/bin:$PATH"` to `~/.zshrc` if that directory is not already on your PATH. Then run:
+The binary installs to `~/.local/bin/dictionary`. The installer adds that folder to your shell profile when needed. Open a new Terminal window, then run:
 
 ```sh
 dictionary

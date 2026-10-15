@@ -20,5 +20,24 @@ chmod +x "$INSTALL_DIR/dictionary"
 printf 'Installed dictionary to %s/dictionary\n' "$INSTALL_DIR"
 case ":$PATH:" in
   *":$INSTALL_DIR:"*) ;;
-  *) printf 'Add this to your shell profile if needed: export PATH="%s:$PATH"\n' "$INSTALL_DIR" ;;
+  *)
+    case "${SHELL:-}" in
+      */zsh) SHELL_PROFILE="$HOME/.zshrc" ;;
+      */bash) SHELL_PROFILE="$HOME/.bash_profile" ;;
+      *) SHELL_PROFILE="$HOME/.profile" ;;
+    esac
+    mkdir -p "$(dirname "$SHELL_PROFILE")"
+    touch "$SHELL_PROFILE"
+    if [ "$INSTALL_DIR" = "$HOME/.local/bin" ]; then
+      PATH_ENTRY='export PATH="$HOME/.local/bin:$PATH"'
+      PROFILE_MATCH='$HOME/.local/bin'
+    else
+      PATH_ENTRY="export PATH=\"$INSTALL_DIR:\$PATH\""
+      PROFILE_MATCH="$INSTALL_DIR"
+    fi
+    if ! grep -Fq "$PROFILE_MATCH" "$SHELL_PROFILE"; then
+      printf '\n%s\n' "$PATH_ENTRY" >> "$SHELL_PROFILE"
+      printf 'Added %s to %s. Open a new Terminal window to use dictionary.\n' "$INSTALL_DIR" "$SHELL_PROFILE"
+    fi
+    ;;
 esac
