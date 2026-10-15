@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 
-REPO="${DICTIONARY_REPO:-https://github.com/3una/dictionary.git}"
-INSTALL_DIR="${DICTIONARY_INSTALL_DIR:-$HOME/.local/bin}"
+REPO="${MACONARY_REPO:-https://github.com/3una/maconary.git}"
+INSTALL_DIR="${MACONARY_INSTALL_DIR:-$HOME/.local/bin}"
 BUILD_DIR="$(mktemp -d)"
 trap 'rm -rf "$BUILD_DIR"' EXIT
 
@@ -15,9 +15,9 @@ git clone --depth 1 "$REPO" "$BUILD_DIR/source"
 cd "$BUILD_DIR/source"
 swift build -c release
 mkdir -p "$INSTALL_DIR"
-cp .build/release/dictionary "$INSTALL_DIR/dictionary"
-chmod +x "$INSTALL_DIR/dictionary"
-printf 'Installed dictionary to %s/dictionary\n' "$INSTALL_DIR"
+cp .build/release/maconary "$INSTALL_DIR/maconary"
+chmod +x "$INSTALL_DIR/maconary"
+printf 'Installed maconary to %s/maconary\n' "$INSTALL_DIR"
 case ":$PATH:" in
   *":$INSTALL_DIR:"*) ;;
   *)
@@ -37,7 +37,7 @@ case ":$PATH:" in
     fi
     if ! grep -Fq "$PROFILE_MATCH" "$SHELL_PROFILE"; then
       printf '\n%s\n' "$PATH_ENTRY" >> "$SHELL_PROFILE"
-      printf 'Added %s to %s. Open a new Terminal window to use dictionary.\n' "$INSTALL_DIR" "$SHELL_PROFILE"
+      printf 'Added %s to %s. Open a new Terminal window to use maconary.\n' "$INSTALL_DIR" "$SHELL_PROFILE"
     fi
     ;;
 esac

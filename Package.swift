@@ -2,8 +2,8 @@
 import PackageDescription
 
 let package = Package(
-    name: "dictionary",
+    name: "maconary",
     platforms: [.macOS(.v13)],
-    products: [.executable(name: "dictionary", targets: ["dictionary"])],
-    targets: [.executableTarget(name: "dictionary")]
+    products: [.executable(name: "maconary", targets: ["maconary"])],
+    targets: [.executableTarget(name: "maconary")]
 )

@@ -70,7 +70,7 @@ enum DictionaryAPI {
     private static func get(_ url: URL) throws -> Data {
         var request = URLRequest(url: url)
         request.timeoutInterval = 10
-        request.setValue("dictionary/1.0 (macOS terminal dictionary)", forHTTPHeaderField: "User-Agent")
+        request.setValue("Maconary/1.0 (macOS terminal dictionary)", forHTTPHeaderField: "User-Agent")
         let semaphore = DispatchSemaphore(value: 0)
         let result = ResultBox()
         URLSession.shared.dataTask(with: request) { data, response, error in
@@ -175,7 +175,7 @@ struct App {
 
     private func redraw() {
         var out = "\u{001B}[H\u{001B}[2J"
-        out += "\u{001B}[1;36mdictionary\u{001B}[0m\n\n"
+        out += "\u{001B}[1;36mMaconary\u{001B}[0m\n\n"
         out += "Search word  \u{001B}[1m\(input)▌\u{001B}[0m\n\n"
         if !suggestions.isEmpty {
             out += "\u{001B}[90mBest matches first · green = higher relevance · red = lower relevance\u{001B}[0m\n"
