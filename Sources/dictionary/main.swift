@@ -101,7 +101,6 @@ struct TerminalMode {
         raw.c_lflag &= ~UInt(ECHO | ICANON | IEXTEN | ISIG)
         raw.c_iflag &= ~UInt(BRKINT | ICRNL | INPCK | ISTRIP | IXON)
         raw.c_cflag |= UInt(CS8)
-        raw.c_oflag &= ~UInt(OPOST)
         _ = tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw)
         active = true
     }
@@ -113,11 +112,10 @@ struct TerminalMode {
 
 struct App {
     private var mode = TerminalMode()
-    private var enabled = false
     private var input = ""
     private var suggestions: [Suggestion] = []
     private var selected = 0
-    private var message = "Press d to enable word entry."
+    private var message = "Type a word and press Return to search."
     private var definition: String?
 
     mutating func run() {
@@ -129,18 +127,17 @@ struct App {
             if byte == 0x1B {
                 handleEscape()
             } else if byte == 0x7F || byte == 0x08 {
-                if enabled, !input.isEmpty { input.removeLast(); redraw() }
+                if !input.isEmpty { input.removeLast(); redraw() }
             } else if byte == 0x0D || byte == 0x0A {
-                if enabled, !input.trimmingCharacters(in: .whitespaces).isEmpty { search() }
+                if !input.trimmingCharacters(in: .whitespaces).isEmpty { search() }
                 else if !suggestions.isEmpty { showDefinition() }
             } else if byte == 0x04 {
                 break
             } else if byte >= 0x20 && byte < 0x7F {
                 let character = Character(UnicodeScalar(byte))
-                if enabled, input.isEmpty, character == "d" { enabled = false; message = "Word entry off. Press d to turn it on."; redraw() }
-                else if !enabled, character == "d" { enabled = true; message = "Type a word, then press Enter."; redraw() }
-                else if enabled { input.append(character); definition = nil; redraw() }
-                else if character == "q" { break }
+                if input.isEmpty { suggestions = []; selected = 0; definition = nil }
+                input.append(character)
+                redraw()
             }
         }
     }
@@ -180,23 +177,35 @@ struct App {
 
     private func redraw() {
         var out = "\u{001B}[H\u{001B}[2J"
-        out += "\u{001B}[1;36mdictionary\u{001B}[0m  \(enabled ? "\u{001B}[32m● ON\u{001B}[0m" : "\u{001B}[90m○ OFF\u{001B}[0m")\n"
-        out += "────────────────────────────────────────────────────────\n"
-        out += "\(enabled ? "Word" : "Dictionary")  \(enabled ? input + "▌" : "(press d to enable)")\n\n"
+        out += "\u{001B}[1;36mdictionary\u{001B}[0m\n\n"
+        out += "Search word  \u{001B}[1m\(input)▌\u{001B}[0m\n\n"
         if !suggestions.isEmpty {
-            out += "Best matches first · color fades from green to red\n\n"
+            out += "\u{001B}[90mBest matches first · green = higher relevance · red = lower relevance\u{001B}[0m\n"
+            let rankWidth = 4
+            let scoreWidth = 7
+            let frequencyWidth = 10
+            let tableWidth = max(44, min(100, terminalWidth() - 2))
+            let wordWidth = max(10, tableWidth - rankWidth - scoreWidth - frequencyWidth - 17)
+            let top = "┌" + String(repeating: "─", count: rankWidth + 2) + "┬" + String(repeating: "─", count: wordWidth + 2) + "┬" + String(repeating: "─", count: scoreWidth + 2) + "┬" + String(repeating: "─", count: frequencyWidth + 2) + "┐"
+            let separator = "├" + String(repeating: "─", count: rankWidth + 2) + "┼" + String(repeating: "─", count: wordWidth + 2) + "┼" + String(repeating: "─", count: scoreWidth + 2) + "┼" + String(repeating: "─", count: frequencyWidth + 2) + "┤"
+            let bottom = "└" + String(repeating: "─", count: rankWidth + 2) + "┴" + String(repeating: "─", count: wordWidth + 2) + "┴" + String(repeating: "─", count: scoreWidth + 2) + "┴" + String(repeating: "─", count: frequencyWidth + 2) + "┘"
+            out += "\n\(top)\n"
+            out += tableRow("#", word: "Word", score: "Score", frequency: "Frequency", rankWidth: rankWidth, wordWidth: wordWidth, scoreWidth: scoreWidth, frequencyWidth: frequencyWidth) + "\n"
+            out += "\(separator)\n"
             for (index, suggestion) in suggestions.enumerated() {
-                let color = colorCode(for: index, count: suggestions.count)
-                let marker = index == selected ? "❯" : " "
-                let frequency = suggestion.tags?.first(where: { $0.hasPrefix("f:") }).map { "  \($0)" } ?? ""
-                out += "\(marker) \(color)\(suggestion.word)\u{001B}[0m\(frequency)\n"
+                let number = index == selected ? ">\(index + 1)" : " \(index + 1)"
+                let frequencyTag = suggestion.tags?.first(where: { $0.hasPrefix("f:") })
+                let frequency = frequencyTag.flatMap { Double($0.dropFirst(2)) }.map { String(format: "%.2f", $0) } ?? "—"
+                let coloredWord = "\(colorCode(for: index, count: suggestions.count))\(suggestion.word)\u{001B}[0m"
+                out += tableRow(number, word: coloredWord, score: String(suggestion.score), frequency: frequency, rankWidth: rankWidth, wordWidth: wordWidth, scoreWidth: scoreWidth, frequencyWidth: frequencyWidth) + "\n"
             }
+            out += "\(bottom)\n"
             if let definition {
-                out += "\n\u{001B}[1m\(suggestions[selected].word)\u{001B}[0m: \(definition)\n"
+                out += "\n\u{001B}[1m\(suggestions[selected].word)\u{001B}[0m\n  \(definition)\n"
             }
         }
         out += "\n\u{001B}[90m\(message)\u{001B}[0m\n"
-        out += "\u{001B}[90md toggle · ↑/↓ browse · Enter search/define · q quit\u{001B}[0m"
+        out += "\u{001B}[90m↑/↓ select · Enter search/show definition · Ctrl+D quit\u{001B}[0m"
         print(out, terminator: "")
         fflush(stdout)
     }
@@ -207,6 +216,29 @@ struct App {
         if progress < 0.5 { return "\u{001B}[92m" }
         if progress < 0.75 { return "\u{001B}[33m" }
         return "\u{001B}[31m"
+    }
+
+    private func tableRow(_ rank: String, word: String, score: String, frequency: String, rankWidth: Int, wordWidth: Int, scoreWidth: Int, frequencyWidth: Int) -> String {
+        let plainWord = stripANSI(word)
+        let clippedWord = String(plainWord.prefix(wordWidth))
+        let coloredWord = word.hasPrefix("\u{001B}") ? word.replacingOccurrences(of: plainWord, with: clippedWord) : clippedWord
+        return "│ \(pad(rank, width: rankWidth, right: true)) │ \(coloredWord)\(String(repeating: " ", count: max(0, wordWidth - clippedWord.count))) │ \(pad(score, width: scoreWidth, right: true)) │ \(pad(frequency, width: frequencyWidth, right: true)) │"
+    }
+
+    private func stripANSI(_ text: String) -> String {
+        text.replacingOccurrences(of: "\u{001B}\\[[0-9;]*m", with: "", options: .regularExpression)
+    }
+
+    private func pad(_ text: String, width: Int, right: Bool) -> String {
+        let clipped = String(text.prefix(width))
+        let spaces = String(repeating: " ", count: max(0, width - clipped.count))
+        return right ? spaces + clipped : clipped + spaces
+    }
+
+    private func terminalWidth() -> Int {
+        var size = winsize()
+        guard ioctl(STDOUT_FILENO, TIOCGWINSZ, &size) == 0, size.ws_col > 0 else { return 80 }
+        return Int(size.ws_col)
     }
 
     private func readByte() -> UInt8? {

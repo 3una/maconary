@@ -20,11 +20,10 @@ If Swift is missing, install Apple's command-line tools with `xcode-select --ins
 
 ## Use
 
-- Press **d** to toggle word entry on or off.
 - Type a word and press **Return** for synonym suggestions.
-- Use **↑ / ↓** to move through suggestions. Results are sorted by the API's relevance score; colors run from green (higher ranked) to red (lower ranked).
+- Use **↑ / ↓** to move through the table. Results are sorted by API relevance; colors run from green (higher ranked) to red (lower ranked).
 - Press **Return** with a suggestion selected to fetch its definition.
-- Press **q** to quit, or **Ctrl+D** to quit from anywhere.
+- Press **Ctrl+D** to quit.
 
 The suggestions are relevance-ranked alternatives, not a guarantee that a word is better in every sentence. Datamuse and Free Dictionary API are public services, so an internet connection is required.
 
